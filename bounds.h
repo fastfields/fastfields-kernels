@@ -57,21 +57,41 @@ constexpr inline type transpose(type b)
 // The difference-form stencil reproduces the exact symmetric operator at a
 // boundary as long as the boundary FOLD is an involution on the tap set: the
 // tap that voxel `p` folds onto must fold back onto `p` with the reciprocal
-// sign. Reach-1 energies (`absolute`, `membrane`) only ever fold a ±1 tap, and
-// every condition here is involutive at reach 1, so they are self-adjoint under
-// all eight. Reach 2 also folds ±2 taps and the ±1/±1 corners, and three
-// conditions stop being involutive there:
+// sign.
+//
+// CORRECTION (measured, not assumed -- see fastfields-kernels#56's review):
+// reach-1 energies (`absolute`, `membrane`) are NOT self-adjoint under every
+// condition either. DCT1's whole-sample fold lands the -1 tap of x=0 onto its
+// own +1 tap, so A[0][1] picks up the fold while A[1][0] does not -- measured
+// relative asymmetry 0.29-0.47 depending on D, identical old vs. new engine
+// (pre-existing, not introduced by this rewrite). This predicate currently
+// covers only the reach-2 (bending) case below; a reach-1 predicate rejecting
+// DCT1 for membrane does not exist yet and is tracked as a follow-up to
+// fastfields-kernels#50's Decision 2, alongside the DST1 correction next.
+//
+// Reach 2 also folds ±2 taps and the ±1/±1 corners:
 //
 //   * Replicate  -- clamping is idempotent, not involutive: both x-1 and x-2
 //                   fold onto 0 at x=0, so the (0,-2) matrix entry has no
-//                   (-2,0) partner to mirror.
-//   * DCT1/DST1  -- whole-sample symmetry reflects about the last INBOUND voxel
-//                   (support N-1 / N+1), so the reflected ±2 tap lands on a
-//                   different voxel than the reverse fold does.
+//                   (-2,0) partner to mirror. Measured asymmetric (confirmed).
+//   * DCT1       -- same whole-sample-fold mechanism as membrane above.
+//                   Measured asymmetric (confirmed).
+//   * DST1       -- CORRECTION: measured EXACTLY self-adjoint for field
+//                   bending at every D (0 relative asymmetry, to the last
+//                   bit) -- the ±2 fold lands back on the centre voxel (a
+//                   diagonal entry) and the ±1 fold hits the sign-0 phantom
+//                   node, so no unmatched off-diagonal entry is created.
+//                   Included in this predicate's rejection set below anyway,
+//                   conservatively, pending the fastfields-kernels#50
+//                   follow-up decision -- the exclusion may belong to flow's
+//                   Lamé cross-coupling block (`transpose()`, phase 2) rather
+//                   than to field's plain bending term.
 //
 // The half-sample family (DCT2/DST2, both reflect_N), DFT, Zero and NoCheck are
-// involutive at every reach and stay exact. See fastfields-kernels#43 (the
-// matvec_bending symmetry evidence) and fastfields-lib#26 (the Lamé mirror).
+// involutive at every reach and stay exact for both membrane and bending. See
+// fastfields-kernels#43 (the original matvec_bending symmetry evidence,
+// partially superseded by the correction above) and fastfields-lib#26 (the
+// Lamé mirror).
 //
 // This is only a PREDICATE: it is `constexpr` and device-safe so a kernel can
 // `static_assert` on it, but the runtime rejection belongs at the host dispatch
