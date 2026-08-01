@@ -1,4 +1,4 @@
 [submodule "external/teeny"]
 	path = external/teeny
 	url = https://github.com/balbasty/teeny.git
-	branch = claude/fastfields-teeny-refactor-js42id
+	branch = main
