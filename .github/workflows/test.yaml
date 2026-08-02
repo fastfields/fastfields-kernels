@@ -72,6 +72,14 @@ jobs:
       - name: Install build toolchain
         run: sudo apt-get update && sudo apt-get install -y clang ccache
 
+      # apt's ccache (4.x) defaults CCACHE_DIR to ~/.cache/ccache (XDG), not
+      # the legacy ~/.ccache -- pin it explicitly so actions/cache below
+      # actually matches where ccache reads/writes (verified against a real
+      # run on fastfields-cpu-lib, which showed the cache save silently
+      # no-op without this).
+      - name: Set CCACHE_DIR
+        run: echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+
       - name: Cache ccache directory
         uses: actions/cache@v4
         with:
